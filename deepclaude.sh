@@ -29,6 +29,11 @@ while [[ $# -gt 0 ]]; do
         --auto-route)    AUTO_ROUTE="1"; shift ;;
         --no-auto-route) AUTO_ROUTE="0"; shift ;;
         --claw)          ACTION="claw"; shift ;;
+        daemon)          ACTION="daemon"; shift; break ;;
+        watch)           ACTION="watch"; shift; break ;;
+        task)            ACTION="task"; shift; break ;;
+        workflow)        ACTION="workflow"; shift; break ;;
+        dashboard)       ACTION="dashboard"; shift; break ;;
         keys)            ACTION="keys"; shift; break ;;
         --help|-h)       ACTION="help"; shift ;;
         *)               break ;;
@@ -405,5 +410,33 @@ case "$ACTION" in
     remote)    launch_remote "$@" ;;
     claw)      launch_claw "$@" ;;
     keys)      exec node "$SCRIPT_DIR/scripts/keys.js" "$@" ;;
+    daemon)    exec node "$SCRIPT_DIR/scripts/daemon.js" "$@" ;;
+    watch)     exec node "$SCRIPT_DIR/scripts/watch.js" "$@" ;;
+    task)
+        # deepclaude task add "<task>" [--mode pipeline|swarm|autoloop] [--cwd /path]
+        TASK_TEXT=""; TASK_MODE="pipeline"; TASK_CWD="$(pwd)"
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                add)     shift; TASK_TEXT="$1"; shift ;;
+                --mode)  TASK_MODE="$2"; shift 2 ;;
+                --cwd)   TASK_CWD="$2"; shift 2 ;;
+                *)       TASK_TEXT="$1"; shift ;;
+            esac
+        done
+        if [[ -z "$TASK_TEXT" ]]; then
+            echo "  Usage: deepclaude task add \"<task>\" [--mode pipeline|swarm|autoloop] [--cwd /path]"
+            exit 1
+        fi
+        QUEUE_DIR="$HOME/.claude/claw/queue"
+        mkdir -p "$QUEUE_DIR"
+        TASK_ID="$(date +%s%N 2>/dev/null || date +%s)"
+        TASK_FILE="$QUEUE_DIR/${TASK_ID}.task"
+        printf '{"task":"%s","mode":"%s","cwd":"%s"}' \
+            "$(echo "$TASK_TEXT" | sed 's/"/\\"/g')" "$TASK_MODE" "$TASK_CWD" > "$TASK_FILE"
+        echo "  Task queued: $TASK_FILE"
+        echo "  Run 'deepclaude daemon status' to check progress."
+        ;;
+    workflow)  exec node "$SCRIPT_DIR/scripts/workflow.js" "$@" ;;
+    dashboard) exec node "$SCRIPT_DIR/scripts/dashboard.js" "$@" ;;
     launch)    launch_claude "$@" ;;
 esac

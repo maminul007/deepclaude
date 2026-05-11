@@ -9,6 +9,13 @@
     "claw:autoloop": "node scripts/claw.js --mode autoloop",
     "claw:auto":     "AUTO_ROUTE=1 node scripts/claw.js",
     "keys":          "node scripts/keys.js",
-    "proxy":         "node proxy/start-proxy.js"
+    "proxy":         "node proxy/start-proxy.js",
+    "daemon":        "node scripts/daemon.js",
+    "daemon:start":  "node scripts/daemon.js start",
+    "daemon:stop":   "node scripts/daemon.js stop",
+    "daemon:status": "node scripts/daemon.js status",
+    "watch":         "node scripts/watch.js",
+    "workflow":      "node scripts/workflow.js",
+    "dashboard":     "node scripts/dashboard.js"
   }
 }

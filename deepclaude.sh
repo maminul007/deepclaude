@@ -342,9 +342,33 @@ launch_claw() {
     resolve_backend
     set_model_env
 
-    export ANTHROPIC_BASE_URL="$RESOLVED_URL"
-    export ANTHROPIC_AUTH_TOKEN="$RESOLVED_KEY"
-    unset ANTHROPIC_API_KEY
+    # Ollama needs a local format-translation proxy (same as launch_claude)
+    if [[ "$BACKEND" == "ol" || "$BACKEND" == "ollama" ]]; then
+        echo "  Starting Ollama proxy (format translation)..."
+        local port_file
+        port_file=$(mktemp)
+        export OLLAMA_API_KEY="${RESOLVED_KEY}"
+        export OLLAMA_HOST="${RESOLVED_URL}"
+        node "$SCRIPT_DIR/proxy/start-proxy.js" "$RESOLVED_URL" "$RESOLVED_KEY" --mode ollama > "$port_file" 2>/dev/null &
+        PROXY_PID=$!
+        local tries=0
+        while [[ ! -s "$port_file" ]] && [[ $tries -lt 30 ]]; do
+            sleep 0.2; tries=$((tries + 1))
+        done
+        if [[ ! -s "$port_file" ]]; then
+            echo "ERROR: Ollama proxy failed to start" >&2; rm -f "$port_file"; exit 1
+        fi
+        local proxy_port
+        proxy_port=$(grep -m1 '^[0-9]\+$' "$port_file")
+        rm -f "$port_file"
+        export ANTHROPIC_BASE_URL="http://127.0.0.1:$proxy_port"
+        unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN
+        echo "  Proxy on :$proxy_port → $RESOLVED_URL"
+    else
+        export ANTHROPIC_BASE_URL="$RESOLVED_URL"
+        export ANTHROPIC_AUTH_TOKEN="$RESOLVED_KEY"
+        unset ANTHROPIC_API_KEY
+    fi
 
     echo "  Launching claw via $BACKEND (auto-route: ${AUTO_ROUTE:-0})..."
     exec node "$SCRIPT_DIR/scripts/claw.js" "$@"

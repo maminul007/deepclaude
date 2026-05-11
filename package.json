@@ -1,0 +1,10 @@
+{
+  "name": "deepclaude",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "claw": "node scripts/claw.js",
+    "claw:auto": "AUTO_ROUTE=1 node scripts/claw.js",
+    "proxy": "node proxy/start-proxy.js"
+  }
+}

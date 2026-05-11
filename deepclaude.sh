@@ -28,6 +28,7 @@ while [[ $# -gt 0 ]]; do
         --benchmark)     ACTION="benchmark"; shift ;;
         --auto-route)    AUTO_ROUTE="1"; shift ;;
         --no-auto-route) AUTO_ROUTE="0"; shift ;;
+        --claw)          ACTION="claw"; shift ;;
         --help|-h)       ACTION="help"; shift ;;
         *)               break ;;
     esac
@@ -160,6 +161,7 @@ show_help() {
     echo "  -s, --switch <backend>               Switch proxy mid-session"
     echo "  --auto-route                         Auto-select pro/flash per request"
     echo "  --no-auto-route                      Disable auto-routing (use static remap)"
+    echo "  --claw                               Launch persistent agent REPL (clawbot)"
     echo "  -h, --help                           This help"
     echo ""
     echo "Environment variables:"
@@ -327,6 +329,27 @@ launch_remote() {
     claude remote-control "$@"
 }
 
+launch_claw() {
+    if [[ "$BACKEND" == "anthropic" ]]; then
+        echo "  Launching claw (Anthropic backend)..."
+        unset ANTHROPIC_BASE_URL ANTHROPIC_AUTH_TOKEN
+        unset ANTHROPIC_DEFAULT_OPUS_MODEL ANTHROPIC_DEFAULT_SONNET_MODEL
+        unset ANTHROPIC_DEFAULT_HAIKU_MODEL CLAUDE_CODE_SUBAGENT_MODEL
+        unset CLAUDE_CODE_EFFORT_LEVEL
+        exec node "$SCRIPT_DIR/scripts/claw.js" "$@"
+    fi
+
+    resolve_backend
+    set_model_env
+
+    export ANTHROPIC_BASE_URL="$RESOLVED_URL"
+    export ANTHROPIC_AUTH_TOKEN="$RESOLVED_KEY"
+    unset ANTHROPIC_API_KEY
+
+    echo "  Launching claw via $BACKEND (auto-route: ${AUTO_ROUTE:-0})..."
+    exec node "$SCRIPT_DIR/scripts/claw.js" "$@"
+}
+
 # --- Main ---
 case "$ACTION" in
     status)    show_status ;;
@@ -335,5 +358,6 @@ case "$ACTION" in
     help)      show_help ;;
     switch)    do_switch ;;
     remote)    launch_remote "$@" ;;
+    claw)      launch_claw "$@" ;;
     launch)    launch_claude "$@" ;;
 esac

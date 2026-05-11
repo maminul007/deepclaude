@@ -14,6 +14,7 @@
 import { runAgent, PRO_MODEL, FLASH_MODEL } from '../lib/runner.js';
 import { agentHeader, agentOutput, agentDone, taskHeader, phaseHeader, success, error, thinking, clearLine } from '../lib/display.js';
 import { buildMemoryContext } from '../lib/session.js';
+import { requireFeature, trackAndEnforceUsage } from '../lib/license.js';
 
 const MAX_ITERATIONS = 5;
 
@@ -47,6 +48,7 @@ function parseReviewVerdict(output) {
 }
 
 export async function runAutoloop(task, sessionName) {
+    requireFeature('autoloop'); trackAndEnforceUsage();
     taskHeader(task);
 
     const memory = sessionName ? buildMemoryContext(sessionName) : '';

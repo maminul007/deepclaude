@@ -35,6 +35,7 @@ while [[ $# -gt 0 ]]; do
         workflow)        ACTION="workflow"; shift; break ;;
         dashboard)       ACTION="dashboard"; shift; break ;;
         keys)            ACTION="keys"; shift; break ;;
+        license)         ACTION="license"; shift; break ;;
         --help|-h)       ACTION="help"; shift ;;
         *)               break ;;
     esac
@@ -410,6 +411,7 @@ case "$ACTION" in
     remote)    launch_remote "$@" ;;
     claw)      launch_claw "$@" ;;
     keys)      exec node "$SCRIPT_DIR/scripts/keys.js" "$@" ;;
+    license)   exec node "$SCRIPT_DIR/scripts/license.js" "$@" ;;
     daemon)    exec node "$SCRIPT_DIR/scripts/daemon.js" "$@" ;;
     watch)     exec node "$SCRIPT_DIR/scripts/watch.js" "$@" ;;
     task)

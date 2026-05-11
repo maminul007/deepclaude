@@ -16,6 +16,8 @@
     "daemon:status": "node scripts/daemon.js status",
     "watch":         "node scripts/watch.js",
     "workflow":      "node scripts/workflow.js",
-    "dashboard":     "node scripts/dashboard.js"
+    "dashboard":     "node scripts/dashboard.js",
+    "license":       "node scripts/license.js",
+    "license:gen":   "node scripts/license-gen.js"
   }
 }

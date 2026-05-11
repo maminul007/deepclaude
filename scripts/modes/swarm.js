@@ -14,6 +14,7 @@
 import { runAgent, runParallel, PRO_MODEL, FLASH_MODEL } from '../lib/runner.js';
 import { agentHeader, agentOutput, agentDone, taskHeader, phaseHeader, success, error, thinking, clearLine } from '../lib/display.js';
 import { buildMemoryContext } from '../lib/session.js';
+import { requireFeature, trackAndEnforceUsage } from '../lib/license.js';
 
 const MAX_FIX_CYCLES = 3;
 
@@ -63,6 +64,7 @@ function parseReviewerVerdict(reviewerOutput) {
 }
 
 export async function runSwarm(task, sessionName) {
+    requireFeature('swarm'); trackAndEnforceUsage();
     taskHeader(task);
 
     const memory = buildMemoryContext(sessionName);

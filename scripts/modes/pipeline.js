@@ -12,6 +12,7 @@
 import { runAgent, PRO_MODEL, FLASH_MODEL } from '../lib/runner.js';
 import { agentHeader, agentOutput, agentDone, taskHeader, phaseHeader, success, thinking, clearLine } from '../lib/display.js';
 import { buildMemoryContext } from '../lib/session.js';
+import { requireFeature, trackAndEnforceUsage } from '../lib/license.js';
 
 const AGENTS = [
     {
@@ -77,6 +78,7 @@ function selectAgents(task) {
 }
 
 export async function runPipeline(task, sessionName) {
+    requireFeature('pipeline'); trackAndEnforceUsage();
     taskHeader(task);
 
     const memory = sessionName ? buildMemoryContext(sessionName) : '';

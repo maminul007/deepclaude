@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * deepclaude dashboard — live web UI
+ * cadence dashboard — live web UI
  *
  * Streams real-time agent events to a browser via SSE.
  * Shows: active agents, queue depth, recent results, cost estimates, timeline.
@@ -8,7 +8,7 @@
  * Usage:
  *   node scripts/dashboard.js          # start on :3210
  *   node scripts/dashboard.js 4000     # custom port
- *   deepclaude dashboard
+ *   cadence dashboard
  */
 
 import { createServer } from 'http';
@@ -31,7 +31,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>deepclaude — live dashboard</title>
+<title>cadence — live dashboard</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:#0d1117;color:#e6edf3;font-family:'SF Mono',monospace;font-size:13px;padding:20px}
@@ -60,7 +60,7 @@ const HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>deepclaude live dashboard</h1>
+<h1>cadence live dashboard</h1>
 <div class="status-bar"><span id="dot"></span><span id="status">connecting...</span></div>
 <div class="grid">
   <div class="card"><div class="label">Queue</div><div class="value" id="stat-queue">-</div><div class="sub">pending tasks</div></div>
@@ -212,7 +212,7 @@ const server = createServer((req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-    console.log(`\n  deepclaude dashboard`);
+    console.log(`\n  cadence dashboard`);
     console.log(`  ─────────────────────`);
     console.log(`  URL    : http://localhost:${PORT}`);
     console.log(`  Events : ${EVENTS_LOG}`);

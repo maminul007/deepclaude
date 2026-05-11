@@ -1,7 +1,7 @@
 /**
- * Encrypted keystore for deepclaude.
+ * Encrypted keystore for cadence.
  *
- * Keys are stored in ~/.deepclaude/keystore.enc — AES-256-GCM encrypted,
+ * Keys are stored in ~/.cadence/keystore.enc — AES-256-GCM encrypted,
  * unlocked only by your master password. File is chmod 600 (owner-read only).
  *
  * Schema (plaintext before encryption):
@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, chmodSync } from 'f
 import { homedir } from 'os';
 import { join } from 'path';
 
-const STORE_DIR  = join(homedir(), '.deepclaude');
+const STORE_DIR  = join(homedir(), '.cadence');
 const STORE_FILE = join(STORE_DIR, 'keystore.enc');
 const PBKDF2_ITER = 200_000;
 const SALT_LEN    = 32;
@@ -92,7 +92,7 @@ export function createKeystore(masterPassword, overwrite = false) {
  * Load and decrypt the keystore. Returns { version, keys }.
  */
 export function loadKeystore(masterPassword) {
-    if (!keystoreExists()) throw new Error('No keystore found. Run: deepclaude keys init');
+    if (!keystoreExists()) throw new Error('No keystore found. Run: cadence keys init');
     const b64 = readFileSync(STORE_FILE, 'utf8').trim();
     const plain = decrypt(b64, masterPassword);
     return JSON.parse(plain);

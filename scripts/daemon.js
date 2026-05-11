@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * deepclaude daemon — background task queue processor
+ * cadence daemon — background task queue processor
  *
  * Drop a JSON file into ~/.claude/claw/queue/ and the daemon runs it.
  * Task file format: { task, mode, session, cwd }
@@ -185,7 +185,7 @@ switch (cmd) {
         break;
     default:
         console.log(`
-  deepclaude daemon — background task processor
+  cadence daemon — background task processor
 
   Commands:
     start    Fork daemon into background

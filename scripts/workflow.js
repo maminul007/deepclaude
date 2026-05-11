@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * deepclaude workflow — JSON-defined multi-agent DAG executor
+ * cadence workflow — JSON-defined multi-agent DAG executor
  *
  * Workflow format (JSON):
  * {
@@ -26,7 +26,7 @@
  *   node scripts/workflow.js run <workflow.json> "<input>"
  *   node scripts/workflow.js run <workflow.json>          # uses workflow.input
  *   node scripts/workflow.js example                      # print example workflow
- *   deepclaude workflow run <file> "<input>"
+ *   cadence workflow run <file> "<input>"
  */
 
 import { readFileSync, writeFileSync } from 'fs';
@@ -193,7 +193,7 @@ if (cmd === 'example') {
 
 if (cmd === 'run') {
     if (!wfArg) {
-        console.error('  Usage: deepclaude workflow run <workflow.json> "<input>"');
+        console.error('  Usage: cadence workflow run <workflow.json> "<input>"');
         process.exit(1);
     }
     let wf;
@@ -204,7 +204,7 @@ if (cmd === 'run') {
     runWorkflow(wf, input).catch(e => { console.error(e.message); process.exit(1); });
 } else {
     console.log(`
-  deepclaude workflow — multi-agent DAG executor
+  cadence workflow — multi-agent DAG executor
 
   Commands:
     run <file.json> "<input>"   Execute a workflow

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * deepclaude watch — file-change triggered autonomous agent
+ * cadence watch — file-change triggered autonomous agent
  *
  * Watches a directory for source file changes. When a file is saved:
  *   - Source file (.js/.ts/.py/.go etc.) → pipeline (Coder → Reviewer)
@@ -11,7 +11,7 @@
  *
  * Usage:
  *   node scripts/watch.js [dir]     Watch <dir> (default: cwd)
- *   deepclaude watch [dir]
+ *   cadence watch [dir]
  */
 
 import { watch } from 'fs';

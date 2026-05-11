@@ -13,21 +13,63 @@ import { Transform } from 'stream';
 export const OLLAMA_CHAT_PATH = '/api/chat';
 
 /**
+ * Compress system prompt by stripping bloated sections that DeepSeek doesn't need.
+ * Saves ~12-15k tokens per request.
+ */
+function compressSystemPrompt(text) {
+    // Strip massive agent type descriptions (biggest offender: ~15k tokens)
+    // These are the "Available agent types and the tools they have access to:" blocks
+    text = text.replace(
+        /Available agent types and the tools they have access to:[\s\S]*?(?=\n# |\n## When not to use)/,
+        'Available agent types: use Agent tool with subagent_type parameter.\n\n'
+    );
+
+    // Strip long skill listings (- skillname: description blocks)
+    text = text.replace(
+        /The following skills are available for use with the Skill tool:[\s\S]*?(?=<\/system-reminder>)/,
+        'Skills are available via the Skill tool. Use /help to list them.\n'
+    );
+
+    // Strip available-deferred-tools listings
+    text = text.replace(
+        /<available-deferred-tools>[\s\S]*?<\/available-deferred-tools>/g,
+        ''
+    );
+
+    // Strip session summary blocks (prior session context, can be huge)
+    text = text.replace(
+        /Previous session summary:[\s\S]*?(?=Project type:|<\/system-reminder>)/,
+        ''
+    );
+
+    // Strip duplicate/verbose tool parameter schemas (keep just the description)
+    text = text.replace(
+        /\{"?\$schema"?:\s*"https:\/\/json-schema\.org[^}]+\}/g,
+        '{...}'
+    );
+
+    // Collapse multiple blank lines
+    text = text.replace(/\n{3,}/g, '\n\n');
+
+    return text;
+}
+
+/**
  * Translate Anthropic /v1/messages request → Ollama /api/chat request
  */
 export function translateRequest(body, modelOverride) {
     const messages = [];
 
-    // System prompt → system message
+    // System prompt → system message (compressed)
     if (body.system) {
         if (typeof body.system === 'string') {
-            messages.push({ role: 'system', content: body.system });
+            messages.push({ role: 'system', content: compressSystemPrompt(body.system) });
         } else if (Array.isArray(body.system)) {
             const text = body.system
                 .filter(b => b.type === 'text')
                 .map(b => b.text)
                 .join('\n');
-            if (text) messages.push({ role: 'system', content: text });
+            if (text) messages.push({ role: 'system', content: compressSystemPrompt(text) });
         }
     }
 
@@ -54,6 +96,9 @@ export function translateRequest(body, modelOverride) {
     if (body.top_p !== undefined) options.top_p = body.top_p;
     if (Object.keys(options).length > 0) result.options = options;
 
+    // Keep model loaded in memory for fast subsequent requests
+    result.keep_alive = '30m';
+
     // Tools (Ollama uses same format as OpenAI)
     if (body.tools && body.tools.length > 0) {
         result.tools = body.tools.map(t => ({
@@ -69,9 +114,20 @@ export function translateRequest(body, modelOverride) {
     return result;
 }
 
+/**
+ * Compress user/tool message text — strip system-reminder noise
+ */
+function compressMessageText(text) {
+    // Strip system-reminder blocks (task tool reminders, hook reminders, etc.)
+    text = text.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, '');
+    // Strip available-deferred-tools
+    text = text.replace(/<available-deferred-tools>[\s\S]*?<\/available-deferred-tools>/g, '');
+    return text.trim();
+}
+
 function translateUserMessage(msg, out) {
     if (typeof msg.content === 'string') {
-        out.push({ role: 'user', content: msg.content });
+        out.push({ role: 'user', content: compressMessageText(msg.content) });
         return;
     }
     if (!Array.isArray(msg.content)) return;
@@ -81,7 +137,7 @@ function translateUserMessage(msg, out) {
 
     for (const block of msg.content) {
         if (block.type === 'text') {
-            textParts.push(block.text);
+            textParts.push(compressMessageText(block.text));
         } else if (block.type === 'tool_result') {
             let resultContent = '';
             if (typeof block.content === 'string') {

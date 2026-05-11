@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * deepclaude keys — encrypted API key manager
+ * cadence keys — encrypted API key manager
  *
  * Usage:
  *   node scripts/keys.js init               Create a new keystore
@@ -11,7 +11,7 @@
  *   node scripts/keys.js verify             Check master password is correct
  *
  * All commands prompt for master password interactively (never passed as arg).
- * Keystore lives at ~/.deepclaude/keystore.enc (AES-256-GCM, chmod 600).
+ * Keystore lives at ~/.cadence/keystore.enc (AES-256-GCM, chmod 600).
  */
 
 import { createInterface } from 'readline';
@@ -108,7 +108,7 @@ async function cmdList() {
     const keys = listKeys(pwd);
 
     if (!keys.length) {
-        console.log('\n  Keystore is empty. Use: deepclaude keys add <NAME> <value>\n');
+        console.log('\n  Keystore is empty. Use: cadence keys add <NAME> <value>\n');
         return;
     }
 
@@ -164,7 +164,7 @@ const COMMANDS = {
 
 if (!cmd || !COMMANDS[cmd]) {
     console.log(`
-  deepclaude keys — encrypted API key manager
+  cadence keys — encrypted API key manager
 
   Commands:
     init               Create a new keystore

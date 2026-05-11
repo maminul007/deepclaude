@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * clawbot — multi-agent orchestration REPL for deepclaude
+ * clawbot — multi-agent orchestration REPL for cadence
  *
- * Three modes, all routed through deepclaude's model proxy:
+ * Three modes, all routed through cadence's model proxy:
  *
  *   swarm     Planner(pro) → Coders×N(flash, parallel) → Reviewer(pro)
  *             Best for: large tasks with independent subtasks
@@ -15,7 +15,7 @@
  *
  * Usage:
  *   node scripts/claw.js [--mode swarm|pipeline|autoloop]
- *   deepclaude --claw [--mode swarm]
+ *   cadence --claw [--mode swarm]
  *   CLAW_SESSION=trading npm run claw
  *
  * REPL commands:

@@ -1,7 +1,7 @@
 /**
  * Agent runner — spawns a single claude -p call with role + context.
  *
- * Model mapping (via deepclaude proxy):
+ * Model mapping (via cadence proxy):
  *   PRO_MODEL   → claude-opus-4-6   → deepseek-v4-pro  (planning, review)
  *   FLASH_MODEL → claude-haiku-4-5-20251001 → deepseek-v4-flash (execution)
  *

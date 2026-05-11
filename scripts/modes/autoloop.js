@@ -13,6 +13,7 @@
 
 import { runAgent, PRO_MODEL, FLASH_MODEL } from '../lib/runner.js';
 import { agentHeader, agentOutput, agentDone, taskHeader, phaseHeader, success, error, thinking, clearLine } from '../lib/display.js';
+import { buildMemoryContext } from '../lib/session.js';
 
 const MAX_ITERATIONS = 5;
 
@@ -45,8 +46,10 @@ function parseReviewVerdict(output) {
     return { done: true }; // default done if no clear signal
 }
 
-export async function runAutoloop(task) {
+export async function runAutoloop(task, sessionName) {
     taskHeader(task);
+
+    const memory = sessionName ? buildMemoryContext(sessionName) : '';
 
     // ── Plan ─────────────────────────────────────────────────────────────
     phaseHeader('Planning');
@@ -58,6 +61,7 @@ export async function runAutoloop(task) {
         role: 'Planner',
         model: PRO_MODEL,
         system: PLANNER_SYSTEM,
+        context: memory || undefined,
         task,
     });
 

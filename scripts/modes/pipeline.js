@@ -11,6 +11,7 @@
 
 import { runAgent, PRO_MODEL, FLASH_MODEL } from '../lib/runner.js';
 import { agentHeader, agentOutput, agentDone, taskHeader, phaseHeader, success, thinking, clearLine } from '../lib/display.js';
+import { buildMemoryContext } from '../lib/session.js';
 
 const AGENTS = [
     {
@@ -75,9 +76,10 @@ function selectAgents(task) {
     });
 }
 
-export async function runPipeline(task) {
+export async function runPipeline(task, sessionName) {
     taskHeader(task);
 
+    const memory = sessionName ? buildMemoryContext(sessionName) : '';
     const agents = selectAgents(task);
     console.log(`  → Running ${agents.length} agents: ${agents.map(a => a.role).join(' → ')}\n`);
 
@@ -89,10 +91,10 @@ export async function runPipeline(task) {
         phaseHeader(`Step ${i + 1}/${agents.length} — ${agent.role}`);
         agentHeader(agent.role, agent.model, i + 1, agents.length);
 
-        // Build context from all previous agents
-        const context = results.length
-            ? results.map(r => `### ${r.role}\n${r.output}`).join('\n\n')
-            : '';
+        // First agent gets memory; subsequent agents get prior agent outputs
+        const agentContext = i === 0 && memory
+            ? memory
+            : results.map(r => `### ${r.role}\n${r.output}`).join('\n\n');
 
         thinking(agent.role);
         const t0 = Date.now();
@@ -101,7 +103,7 @@ export async function runPipeline(task) {
             role: agent.role,
             model: agent.model,
             system: agent.system,
-            context,
+            context: agentContext || undefined,
             task,
         });
 

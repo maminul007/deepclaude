@@ -30,7 +30,7 @@
 
 import { createInterface } from 'readline';
 import { banner, error, success } from './lib/display.js';
-import { loadHistory, appendTurn, clearSession, listSessions } from './lib/session.js';
+import { loadHistory, appendTurn, clearSession, listSessions, saveNote, recentHistory, persistentNotes, buildMemoryContext } from './lib/session.js';
 import { runSwarm } from './modes/swarm.js';
 import { runPipeline } from './modes/pipeline.js';
 import { runAutoloop } from './modes/autoloop.js';
@@ -61,6 +61,8 @@ function showHelp() {
     /mode <swarm|pipeline|autoloop>   Switch active mode
     /clear                            Clear session history
     /history                          Print full session history
+    /memory                           Show all memory context (history + notes + codebase)
+    /note <text>                      Save a persistent note for this session
     /sessions                         List all saved sessions
     /status                           Show current config
     /help                             Show this help
@@ -70,6 +72,11 @@ function showHelp() {
     swarm     — parallel agents (Planner + Coders×N + Reviewer)
     pipeline  — sequential agents (Researcher→Architect→Coder→Tester→Reviewer)
     autoloop  — iterating loop (Planner→Coder→Reviewer→repeat until approved)
+
+  Memory layers (injected into first agent of every run):
+    1. Session history  — last 10 turns from this session
+    2. Persistent notes — /note entries saved across sessions
+    3. Codebase snapshot — git branch, recent commits, file tree
 `);
 }
 
@@ -142,6 +149,24 @@ async function main() {
             if (input === '/history') {
                 const h = loadHistory(SESSION_NAME);
                 console.log(h.trim() || '  (empty)');
+                prompt();
+                return;
+            }
+
+            // /memory
+            if (input === '/memory') {
+                const mem = buildMemoryContext(SESSION_NAME);
+                console.log(mem.trim() || '  (no memory yet)');
+                prompt();
+                return;
+            }
+
+            // /note <text>
+            if (input.startsWith('/note ')) {
+                const note = input.slice(6).trim();
+                if (!note) { error('Usage: /note <text>'); prompt(); return; }
+                saveNote(SESSION_NAME, note);
+                success(`Note saved to session '${SESSION_NAME}'`);
                 prompt();
                 return;
             }

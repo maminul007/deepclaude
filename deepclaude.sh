@@ -29,6 +29,7 @@ while [[ $# -gt 0 ]]; do
         --auto-route)    AUTO_ROUTE="1"; shift ;;
         --no-auto-route) AUTO_ROUTE="0"; shift ;;
         --claw)          ACTION="claw"; shift ;;
+        keys)            ACTION="keys"; shift; break ;;
         --help|-h)       ACTION="help"; shift ;;
         *)               break ;;
     esac
@@ -374,7 +375,27 @@ launch_claw() {
     exec node "$SCRIPT_DIR/scripts/claw.js" "$@"
 }
 
+# ---------------------------------------------------------------------------
+# Keystore: auto-load keys before launch if keystore exists and
+# DEEPCLAUDE_MASTER_PASSWORD is set (or --unlock was passed).
+# Keys are exported into the current shell so resolve_backend can find them.
+# ---------------------------------------------------------------------------
+load_keystore_if_present() {
+    local ks="$HOME/.deepclaude/keystore.enc"
+    [[ ! -f "$ks" ]] && return 0
+    local pwd="${DEEPCLAUDE_MASTER_PASSWORD:-}"
+    [[ -z "$pwd" ]] && return 0   # silent skip if no password provided
+    local exports
+    exports=$(node "$SCRIPT_DIR/scripts/keys.js" export 2>/dev/null <<< "$pwd") || return 0
+    # Source only valid export lines
+    while IFS= read -r line; do
+        [[ "$line" =~ ^export\ [A-Z_]+=\" ]] && eval "$line" 2>/dev/null || true
+    done <<< "$exports"
+}
+
 # --- Main ---
+load_keystore_if_present
+
 case "$ACTION" in
     status)    show_status ;;
     cost)      show_cost ;;
@@ -383,5 +404,6 @@ case "$ACTION" in
     switch)    do_switch ;;
     remote)    launch_remote "$@" ;;
     claw)      launch_claw "$@" ;;
+    keys)      exec node "$SCRIPT_DIR/scripts/keys.js" "$@" ;;
     launch)    launch_claude "$@" ;;
 esac

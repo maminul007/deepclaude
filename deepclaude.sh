@@ -15,20 +15,25 @@ BACKEND="${CHEAPCLAUDE_DEFAULT_BACKEND:-ds}"
 ACTION="launch"
 SWITCH_BACKEND=""
 PROXY_PID=""
+AUTO_ROUTE="${AUTO_ROUTE:-0}"
 
 # --- Parse args ---
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --backend|-b) BACKEND="$2"; shift 2 ;;
-        --switch|-s)  ACTION="switch"; SWITCH_BACKEND="$2"; shift 2 ;;
-        --remote|-r)  ACTION="remote"; shift ;;
-        --status)     ACTION="status"; shift ;;
-        --cost)       ACTION="cost"; shift ;;
-        --benchmark)  ACTION="benchmark"; shift ;;
-        --help|-h)    ACTION="help"; shift ;;
-        *)            break ;;
+        --backend|-b)    BACKEND="$2"; shift 2 ;;
+        --switch|-s)     ACTION="switch"; SWITCH_BACKEND="$2"; shift 2 ;;
+        --remote|-r)     ACTION="remote"; shift ;;
+        --status)        ACTION="status"; shift ;;
+        --cost)          ACTION="cost"; shift ;;
+        --benchmark)     ACTION="benchmark"; shift ;;
+        --auto-route)    AUTO_ROUTE="1"; shift ;;
+        --no-auto-route) AUTO_ROUTE="0"; shift ;;
+        --help|-h)       ACTION="help"; shift ;;
+        *)               break ;;
     esac
 done
+
+export AUTO_ROUTE
 
 cleanup_proxy() {
     if [[ -n "$PROXY_PID" ]] && kill -0 "$PROXY_PID" 2>/dev/null; then
@@ -153,6 +158,8 @@ show_help() {
     echo "  --cost                               Pricing comparison"
     echo "  --benchmark                          Latency test"
     echo "  -s, --switch <backend>               Switch proxy mid-session"
+    echo "  --auto-route                         Auto-select pro/flash per request"
+    echo "  --no-auto-route                      Disable auto-routing (use static remap)"
     echo "  -h, --help                           This help"
     echo ""
     echo "Environment variables:"
@@ -160,6 +167,7 @@ show_help() {
     echo "  OPENROUTER_API_KEY    OpenRouter API key (required for or)"
     echo "  FIREWORKS_API_KEY     Fireworks API key (required for fw)"
     echo "  CHEAPCLAUDE_DEFAULT_BACKEND  Default backend (default: ds)"
+    echo "  AUTO_ROUTE            Set to 1 to enable auto-routing by default"
 }
 
 do_switch() {

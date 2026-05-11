@@ -1,5 +1,5 @@
 import { createServer } from 'http';
-import { request as httpsRequest } from 'https';
+import { Agent as HttpsAgent, request as httpsRequest } from 'https';
 import { URL } from 'url';
 import { Transform } from 'stream';
 import { translateRequest, translateResponse, OllamaToAnthropicStream, OLLAMA_CHAT_PATH } from './anthropic-to-openai.js';
@@ -7,6 +7,9 @@ import { translateRequest, translateResponse, OllamaToAnthropicStream, OLLAMA_CH
 const ANTHROPIC_FALLBACK = 'https://api.anthropic.com';
 const MODEL_PATHS = ['/v1/messages'];
 const REQUEST_TIMEOUT_MS = 5 * 60 * 1000; // 5 min per request
+
+// Reuse TLS connections across requests (saves ~100-200ms per request)
+const keepAliveAgent = new HttpsAgent({ keepAlive: true, maxSockets: 10 });
 
 const MODEL_REMAP = {
     deepseek: {
@@ -40,6 +43,114 @@ const PRICING_PER_M = {
     anthropic:  { input: 3.00,  output: 15.00 },
     _single:    { input: 0.44,  output: 0.87 },
 };
+
+// ---------------------------------------------------------------------------
+// Auto-routing: classify each request to pick pro vs flash automatically.
+// Signals checked in order of priority:
+//   1. Requested Claude model family (opus→pro, haiku→flash)
+//   2. Content keyword scoring
+//   3. Estimated token count
+// ---------------------------------------------------------------------------
+
+const PRO_KEYWORDS = [
+    'architect', 'architecture', 'security', 'vulnerability', 'exploit',
+    'critical', 'complex', 'refactor', 'redesign', 'deep', 'analyse',
+    'analyze', 'debug', 'diagnose', 'reasoning', 'strategy', 'design',
+    'implement feature', 'new feature', 'integrate', 'migration', 'optimize',
+    'performance', 'concurrent', 'race condition', 'deadlock', 'algorithm',
+    'mathematical', 'proof', 'hypothesis', 'research', 'evaluation',
+];
+
+const FLASH_KEYWORDS = [
+    'read', 'list', 'search', 'find', 'grep', 'ls', 'cat', 'format',
+    'rename', 'move', 'copy', 'delete', 'simple', 'quick', 'just',
+    'show me', 'print', 'display', 'summarize', 'explain this line',
+    'what is', 'what does', 'check if', 'verify', 'count',
+];
+
+const PRO_THRESHOLD = 2;   // net keyword score to upgrade to pro
+const FLASH_MAX_TOKENS = 400; // short messages default to flash
+
+/**
+ * Estimate rough token count from string (4 chars ≈ 1 token).
+ */
+function estimateTokens(text) {
+    return Math.ceil((text || '').length / 4);
+}
+
+/**
+ * Extract all text content from an Anthropic request body for analysis.
+ */
+function extractText(body) {
+    const parts = [];
+    if (body.system) {
+        parts.push(typeof body.system === 'string' ? body.system : JSON.stringify(body.system));
+    }
+    for (const msg of (body.messages || [])) {
+        if (typeof msg.content === 'string') {
+            parts.push(msg.content);
+        } else if (Array.isArray(msg.content)) {
+            for (const block of msg.content) {
+                if (block.type === 'text') parts.push(block.text || '');
+            }
+        }
+    }
+    return parts.join(' ').toLowerCase();
+}
+
+/**
+ * Classify a parsed request body.
+ * Returns { tier: 'pro' | 'flash', reason: string, originalModel: string }
+ */
+function classifyRequest(body) {
+    const originalModel = body.model || '';
+
+    // 1. Opus always gets pro; haiku always gets flash
+    if (/opus/i.test(originalModel)) {
+        return { tier: 'pro', reason: 'opus model requested', originalModel };
+    }
+    if (/haiku/i.test(originalModel)) {
+        return { tier: 'flash', reason: 'haiku model requested', originalModel };
+    }
+
+    // 2. Keyword scoring on text content
+    const text = extractText(body);
+    let score = 0;
+    for (const kw of PRO_KEYWORDS)   { if (text.includes(kw)) score++; }
+    for (const kw of FLASH_KEYWORDS) { if (text.includes(kw)) score--; }
+
+    if (score >= PRO_THRESHOLD) {
+        return { tier: 'pro', reason: `keyword score ${score} (pro keywords matched)`, originalModel };
+    }
+
+    // 3. Short messages → flash (probably tool output / simple queries)
+    const approxTokens = estimateTokens(text);
+    if (approxTokens < FLASH_MAX_TOKENS && score < 1) {
+        return { tier: 'flash', reason: `short request (~${approxTokens} tokens)`, originalModel };
+    }
+
+    // 4. Has tools defined → likely agentic loop, moderate complexity → flash
+    //    unless keyword score pushed it toward pro
+    if (body.tools && body.tools.length > 0 && score < 1) {
+        return { tier: 'flash', reason: 'tool-use request, low complexity score', originalModel };
+    }
+
+    // Default: flash (cheapest option that handles most cases)
+    return { tier: 'flash', reason: `default (score=${score})`, originalModel };
+}
+
+/**
+ * Given a backend name and a tier ('pro'|'flash'), return the model string.
+ * Falls back to MODEL_REMAP opus/haiku entries as pro/flash proxies.
+ */
+function modelForTier(backend, tier) {
+    const remap = MODEL_REMAP[backend];
+    if (!remap) return null;
+    if (tier === 'pro') {
+        return remap['claude-opus-4-6'] || remap['claude-sonnet-4-6'];
+    }
+    return remap['claude-haiku-4-5-20251001'] || remap['claude-sonnet-4-6'];
+}
 
 /**
  * Transform stream that intercepts SSE events and injects missing `usage`
@@ -158,6 +269,8 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
             useBearer: startBackend ? startBackend.useBearer : initialBearer,
             needsTranslation: startBackend ? startBackend.needsTranslation : initialNeedsTranslation,
             hadNonAnthropicSession: !!startBackend,
+            autoRoute: process.env.AUTO_ROUTE === '1' || process.env.AUTO_ROUTE === 'true',
+            autoRouteStats: { pro: 0, flash: 0 },
         };
 
         let reqCount = 0;
@@ -232,7 +345,33 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                         mode: state.mode,
                         uptime: Math.round((Date.now() - t0Global) / 1000),
                         requests: reqCount,
+                        auto_route: state.autoRoute,
+                        auto_route_stats: state.autoRouteStats,
                     }));
+                    return;
+                }
+                if (urlPath === '/_proxy/auto-route' && clientReq.method === 'POST') {
+                    const origin = clientReq.headers['origin'] || '';
+                    if (origin && !origin.startsWith('http://127.0.0.1') && !origin.startsWith('http://localhost')) {
+                        clientRes.writeHead(403, { 'content-type': 'application/json' });
+                        clientRes.end(JSON.stringify({ error: 'Forbidden' }));
+                        return;
+                    }
+                    const arChunks = [];
+                    clientReq.on('data', c => arChunks.push(c));
+                    clientReq.on('end', () => {
+                        const arBody = Buffer.concat(arChunks).toString();
+                        const m = arBody.match(/enabled=(true|false|1|0)/);
+                        if (!m) {
+                            clientRes.writeHead(400, { 'content-type': 'application/json' });
+                            clientRes.end(JSON.stringify({ error: 'Missing enabled=true|false in body' }));
+                            return;
+                        }
+                        state.autoRoute = m[1] === 'true' || m[1] === '1';
+                        console.error(`[MODEL-PROXY] Auto-routing ${state.autoRoute ? 'ENABLED' : 'DISABLED'}`);
+                        clientRes.writeHead(200, { 'content-type': 'application/json' });
+                        clientRes.end(JSON.stringify({ auto_route: state.autoRoute, stats: state.autoRouteStats }));
+                    });
                     return;
                 }
                 if (urlPath === '/_proxy/cost') {
@@ -329,13 +468,23 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
             clientReq.on('end', () => {
                 let body = Buffer.concat(chunks);
 
-                // Remap Anthropic model names to backend-specific names
+                // Remap Anthropic model names to backend-specific names.
+                // When auto-routing is enabled, pick pro vs flash per-request.
                 if (isModelCall && MODEL_REMAP[state.mode]) {
                     try {
                         const parsed = JSON.parse(body);
-                        const mapped = MODEL_REMAP[state.mode][parsed.model];
+                        let mapped;
+                        if (state.autoRoute) {
+                            const classification = classifyRequest(parsed);
+                            mapped = modelForTier(state.mode, classification.tier);
+                            console.error(`[MODEL-PROXY] #${reqId} auto-route: ${classification.originalModel} → ${mapped} [${classification.tier}] (${classification.reason})`);
+                            state.autoRouteStats = state.autoRouteStats || { pro: 0, flash: 0 };
+                            state.autoRouteStats[classification.tier]++;
+                        } else {
+                            mapped = MODEL_REMAP[state.mode][parsed.model];
+                            if (mapped) console.error(`[MODEL-PROXY] #${reqId} model remap: ${parsed.model} → ${mapped}`);
+                        }
                         if (mapped) {
-                            console.error(`[MODEL-PROXY] #${reqId} model remap: ${parsed.model} → ${mapped}`);
                             parsed.model = mapped;
                             body = Buffer.from(JSON.stringify(parsed));
                         }
@@ -371,6 +520,7 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                 let ollamaRequestModel = null;
                 if (isModelCall && state.needsTranslation) {
                     try {
+                        const originalSize = body.length;
                         const parsed = JSON.parse(body);
                         ollamaRequestModel = parsed.model || 'unknown';
                         const ollamaBody = translateRequest(parsed);
@@ -379,7 +529,9 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                         // Clean up Anthropic-specific headers
                         delete headers['anthropic-version'];
                         delete headers['anthropic-beta'];
-                        console.error(`[MODEL-PROXY] #${reqId} Ollama translate: model=${ollamaRequestModel}, path=${fullPath}, body=${body.toString().substring(0, 500)}`);
+                        const saved = originalSize - body.length;
+                        const pct = originalSize > 0 ? Math.round(saved / originalSize * 100) : 0;
+                        console.error(`[MODEL-PROXY] #${reqId} Ollama: model=${ollamaRequestModel}, ${(body.length/1024).toFixed(0)}KB (saved ${(saved/1024).toFixed(0)}KB / ${pct}%)`);
                     } catch (e) {
                         console.error(`[MODEL-PROXY] #${reqId} Ollama translate error: ${e.message}`);
                     }
@@ -392,6 +544,7 @@ export function startModelProxy({ targetUrl, apiKey, startPort = 3200, backends,
                     method: clientReq.method,
                     headers: { ...headers, 'content-length': body.length },
                     timeout: REQUEST_TIMEOUT_MS,
+                    agent: keepAliveAgent,
                 };
 
                 const proxyReq = httpsRequest(opts, (proxyRes) => {

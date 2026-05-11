@@ -96,7 +96,12 @@ async function main() {
         output: process.stdout,
     });
 
+    let rlClosed = false;
+    let busy = false;
+    rl.on('close', () => { rlClosed = true; if (!busy) process.exit(0); });
+
     function prompt() {
+        if (rlClosed) { process.exit(0); return; }
         rl.question(`\nclaw(${SESSION_NAME}:${currentMode})> `, async (input) => {
             input = input.trim();
 
@@ -177,6 +182,7 @@ async function main() {
             // ── Run the task ───────────────────────────────────────────────
             appendTurn(SESSION_NAME, 'User', input);
 
+            busy = true;
             let result;
             try {
                 switch (currentMode) {
@@ -193,6 +199,9 @@ async function main() {
                 if (result) appendTurn(SESSION_NAME, `Assistant (${currentMode})`, result);
             } catch (err) {
                 error(err.message);
+            } finally {
+                busy = false;
+                if (rlClosed) { process.exit(0); return; }
             }
 
             prompt();

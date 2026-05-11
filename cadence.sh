@@ -35,6 +35,8 @@ while [[ $# -gt 0 ]]; do
         workflow)        ACTION="workflow"; shift; break ;;
         dashboard)       ACTION="dashboard"; shift; break ;;
         keys)            ACTION="keys"; shift; break ;;
+        upgrade)         ACTION="upgrade"; shift; break ;;
+        manage)          ACTION="manage"; shift; break ;;
         license)         ACTION="license"; shift; break ;;
         --help|-h)       ACTION="help"; shift ;;
         *)               break ;;
@@ -412,6 +414,8 @@ case "$ACTION" in
     claw)      launch_claw "$@" ;;
     keys)      exec node "$SCRIPT_DIR/scripts/keys.js" "$@" ;;
     license)   exec node "$SCRIPT_DIR/scripts/license.js" "$@" ;;
+    upgrade)   exec node "$SCRIPT_DIR/scripts/upgrade.js" "$@" ;;
+    manage)    exec node "$SCRIPT_DIR/scripts/upgrade.js" manage "$@" ;;
     daemon)    exec node "$SCRIPT_DIR/scripts/daemon.js" "$@" ;;
     watch)     exec node "$SCRIPT_DIR/scripts/watch.js" "$@" ;;
     task)

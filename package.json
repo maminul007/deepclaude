@@ -18,6 +18,8 @@
     "workflow":      "node scripts/workflow.js",
     "dashboard":     "node scripts/dashboard.js",
     "license":       "node scripts/license.js",
-    "license:gen":   "node scripts/license-gen.js"
+    "license:gen":   "node scripts/license-gen.js",
+    "upgrade":       "node scripts/upgrade.js",
+    "manage":        "node scripts/upgrade.js manage"
   }
 }

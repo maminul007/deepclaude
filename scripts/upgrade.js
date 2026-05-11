@@ -34,6 +34,12 @@ const POLL_INTERVAL   = 3000;   // ms between Stripe status checks
 const POLL_TIMEOUT    = 600000; // 10 minutes max
 
 const PLANS = {
+    starter: {
+        label:    'Starter — $9/month',
+        priceEnv: 'STRIPE_STARTER_PRICE_ID',
+        days:     31,
+        tier:     'starter',
+    },
     pro: {
         label:    'Pro — $29/month',
         priceEnv: 'STRIPE_PRO_PRICE_ID',
@@ -121,10 +127,13 @@ async function runUpgrade() {
 
     if (!planKey) {
         console.log('  Plans:');
-        console.log('    1. Pro — $29/month       (all features, cancel anytime)');
-        console.log('    2. Pro Annual — $249/year (save $99)\n');
-        const choice = await prompt(rl, '  Choose plan [1/2]: ');
-        planKey = choice.trim() === '2' ? 'pro_annual' : 'pro';
+        console.log('    1. Starter — $9/month    (100 calls/day, core features)');
+        console.log('    2. Pro     — $29/month   (unlimited, all features)');
+        console.log('    3. Pro Annual — $249/year (save $99)\n');
+        const choice = await prompt(rl, '  Choose plan [1/2/3]: ');
+        planKey = choice.trim() === '3' ? 'pro_annual'
+                : choice.trim() === '2' ? 'pro'
+                : 'starter';
     }
 
     const plan = PLANS[planKey];

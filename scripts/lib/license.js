@@ -35,6 +35,11 @@ export const TIERS = {
         dailyLimit: 20,
         label:      'Free',
     },
+    starter: {
+        features:   ['swarm', 'pipeline', 'autoloop', 'daemon', 'watch'],
+        dailyLimit: 100,
+        label:      'Starter',
+    },
     pro: {
         features:   ['swarm', 'pipeline', 'autoloop', 'daemon', 'watch', 'workflow', 'dashboard', 'autonomous'],
         dailyLimit: Infinity,

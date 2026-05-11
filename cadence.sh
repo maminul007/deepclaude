@@ -28,6 +28,7 @@ while [[ $# -gt 0 ]]; do
         --benchmark)     ACTION="benchmark"; shift ;;
         --auto-route)    AUTO_ROUTE="1"; shift ;;
         --no-auto-route) AUTO_ROUTE="0"; shift ;;
+        --cheap)         export CADENCE_CHEAP=1; shift ;;
         --claw)          ACTION="claw"; shift ;;
         daemon)          ACTION="daemon"; shift; break ;;
         watch)           ACTION="watch"; shift; break ;;
@@ -168,6 +169,7 @@ show_help() {
     echo "  --cost                               Pricing comparison"
     echo "  --benchmark                          Latency test"
     echo "  -s, --switch <backend>               Switch proxy mid-session"
+    echo "  --cheap                              Force flash model + cache (minimum cost)"
     echo "  --auto-route                         Auto-select pro/flash per request"
     echo "  --no-auto-route                      Disable auto-routing (use static remap)"
     echo "  --claw                               Launch persistent agent REPL (clawbot)"
